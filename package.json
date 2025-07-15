@@ -1,0 +1,46 @@
+{
+  "name": "lyra-ai-assistant",
+  "version": "1.0.0",
+  "description": "Lyra AI Assistant for Linux Mint",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "install-deps": "npm install"
+  },
+  "keywords": [
+    "ai",
+    "assistant",
+    "linux",
+    "overlay"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^17.2.0",
+    "electron": "^27.0.0",
+    "env": "^0.0.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.1",
+    "electron-builder": "^24.6.4",
+    "playwright": "^1.54.1"
+  },
+  "build": {
+    "appId": "com.lyra.ai.assistant",
+    "productName": "Lyra AI Assistant",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*"
+    ],
+    "linux": {
+      "target": "AppImage",
+      "category": "Utility"
+    }
+  }
+}

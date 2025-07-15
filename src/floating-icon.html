@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Lyra AI Assistant</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            overflow: hidden;
+            -webkit-app-region: drag;
+        }
+
+        .floating-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            -webkit-app-region: no-drag;
+        }
+
+        .floating-icon:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6);
+        }
+
+        .floating-icon.active {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            box-shadow: 0 4px 20px rgba(17, 153, 142, 0.6);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 4px 20px rgba(17, 153, 142, 0.6); }
+            50% { box-shadow: 0 6px 30px rgba(17, 153, 142, 0.8); }
+            100% { box-shadow: 0 4px 20px rgba(17, 153, 142, 0.6); }
+        }
+
+        .icon-text {
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .notification-dot {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 12px;
+            height: 12px;
+            background: #ff4757;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .notification-dot.visible {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="floating-icon" id="floatingIcon">
+        <div class="icon-text">✨</div>
+        <div class="notification-dot" id="notificationDot"></div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        
+        const floatingIcon = document.getElementById('floatingIcon');
+        const notificationDot = document.getElementById('notificationDot');
+        
+        let hasSelectedText = false;
+
+        // Handle icon click
+        floatingIcon.addEventListener('click', async () => {
+            // Force refresh clipboard content before opening chat
+            await ipcRenderer.invoke('refresh-text');
+            await ipcRenderer.invoke('show-chat');
+        });
+
+        // Listen for text selection events
+        ipcRenderer.on('text-selected', (event, text) => {
+            hasSelectedText = true;
+            floatingIcon.classList.add('active');
+            notificationDot.classList.add('visible');
+        });
+
+        // Clear selection state
+        ipcRenderer.on('clear-selection', () => {
+            hasSelectedText = false;
+            floatingIcon.classList.remove('active');
+            notificationDot.classList.remove('visible');
+        });
+
+        // Prevent context menu
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+    </script>
+</body>
+</html>
