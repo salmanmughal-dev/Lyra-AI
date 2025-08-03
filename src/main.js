@@ -1,11 +1,32 @@
 const { app, BrowserWindow, ipcMain, globalShortcut, clipboard, screen } = require('electron');
 const path = require('path');
+const axios = require('axios');
+const { translate } = require('@vitalets/google-translate-api');
+const mousePosition = require('mouse-position');
 require('dotenv').config();
 
 let floatingWindow;
 let chatWindow;
 let selectedText = '';
 let messageHistory = [];
+
+// Supported languages for translation
+const SUPPORTED_LANGUAGES = [
+    { code: 'en', name: 'English' },
+    { code: 'es', name: 'Spanish' },
+    { code: 'fr', name: 'French' },
+    { code: 'de', name: 'German' },
+    { code: 'it', name: 'Italian' },
+    { code: 'pt', name: 'Portuguese' },
+    { code: 'ru', name: 'Russian' },
+    { code: 'zh', name: 'Chinese' },
+    { code: 'ja', name: 'Japanese' },
+    { code: 'ko', name: 'Korean' },
+    { code: 'ar', name: 'Arabic' }
+];
+
+let translationPopup = null;
+let translationTimer = null;
 
 // Helper function to strip HTML and get clean text
 function stripHtmlToText(html) {
@@ -133,30 +154,81 @@ function createChatWindow() {
   });
 }
 
+// Create translation popup window
+function createTranslationPopup(x, y) {
+    if (translationPopup && !translationPopup.isDestroyed()) {
+        translationPopup.destroy();
+    }
+
+    translationPopup = new BrowserWindow({
+        width: 300,
+        height: 120,
+        x: x,
+        y: y + 20, // Show below cursor
+        frame: false,
+        alwaysOnTop: true,
+        skipTaskbar: true,
+        resizable: false,
+        transparent: true,
+        show: false,
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false
+        }
+    });
+
+    translationPopup.loadFile('src/translation-popup.html');
+    
+    // Hide popup when clicking outside
+    translationPopup.on('blur', () => {
+        translationPopup.destroy();
+    });
+}
+
 // Monitor clipboard for text selection
 function monitorTextSelection() {
   let lastClipboard = '';
-  let lastProcessedText = '';
   
-  setInterval(() => {
+  setInterval(async () => {
     const currentClipboard = clipboard.readText();
+    const mousePos = mousePosition();
     
-    // Always check for new clipboard content, even if it's the same as before
     if (currentClipboard && 
         currentClipboard.trim().length > 0 && 
         currentClipboard !== lastClipboard) {
       
-      selectedText = currentClipboard.trim();
       lastClipboard = currentClipboard;
       
-      // Always highlight the floating icon for any new clipboard content
-      if (floatingWindow) {
-        floatingWindow.webContents.send('text-selected', selectedText);
+      // Clear existing timer
+      if (translationTimer) {
+        clearTimeout(translationTimer);
       }
       
-      console.log('New text selected:', selectedText.substring(0, 50) + '...');
+      // Set new timer for translation
+      translationTimer = setTimeout(async () => {
+        const cleanText = currentClipboard.trim();
+        
+        // Create popup at mouse position
+        createTranslationPopup(mousePos.x, mousePos.y);
+        
+        // Show popup with original text
+        translationPopup.show();
+        translationPopup.webContents.send('translate-text', {
+          original: cleanText
+        });
+        
+        // Get translation
+        const translation = await translateToUrdu(cleanText);
+        
+        // Update popup with translation
+        if (translationPopup && !translationPopup.isDestroyed()) {
+          translationPopup.webContents.send('translation-result', {
+            translation: translation
+          });
+        }
+      }, 2000); // 2 second delay
     }
-  }, 200); // Even faster monitoring
+  }, 200);
 }
 
 // Function to force refresh selected text
@@ -171,6 +243,53 @@ function refreshSelectedText() {
     return true;
   }
   return false;
+}
+
+// Translate text to supported languages
+async function translateText(text, targetLanguages) {
+    try {
+        const translations = [];
+        const sourceText = text.trim();
+        
+        // Using LibreTranslate API (you can self-host or use public instance)
+        const API_URL = 'https://libretranslate.de/translate';
+        
+        for (const lang of targetLanguages) {
+            try {
+                const response = await axios.post(API_URL, {
+                    q: sourceText,
+                    source: 'auto',
+                    target: lang.code
+                });
+                
+                if (response.data && response.data.translatedText) {
+                    translations.push({
+                        language: lang.name,
+                        code: lang.code,
+                        text: response.data.translatedText
+                    });
+                }
+            } catch (err) {
+                console.log(`Translation error for ${lang.code}:`, err.message);
+            }
+        }
+        
+        return translations;
+    } catch (error) {
+        console.log('Translation error:', error.message);
+        return [];
+    }
+}
+
+// Add this function for Google Translate API
+async function translateToUrdu(text) {
+    try {
+        const result = await translate(text, { to: 'ur' });
+        return result.text;
+    } catch (error) {
+        console.error('Translation error:', error);
+        return 'Translation failed';
+    }
 }
 
 // App initialization
@@ -220,6 +339,32 @@ app.whenReady().then(() => {
       }
     } catch (error) {
       console.log('Global shortcut error:', error.message);
+    }
+  });
+  
+  // Register global shortcut for translation
+  globalShortcut.register('Ctrl+Shift+T', async () => {
+    try {
+        const text = clipboard.readText();
+        
+        if (text && text.trim() && text.trim().split(/\s+/).length <= 5) {
+            const translations = await translateText(text, SUPPORTED_LANGUAGES);
+            
+            if (translations.length > 0) {
+                if (chatWindow && !chatWindow.isDestroyed()) {
+                    chatWindow.show();
+                    chatWindow.focus();
+                    chatWindow.webContents.send('show-translations', {
+                        original: text.trim(),
+                        translations
+                    });
+                }
+            }
+        } else {
+            console.log('Text too long or empty for translation');
+        }
+    } catch (error) {
+        console.log('Translation shortcut error:', error.message);
     }
   });
 });
@@ -361,6 +506,22 @@ ipcMain.handle('get-env-vars', () => {
   };
 });
 
+// Translate text IPC handler
+ipcMain.handle('translate-text', async (event, text) => {
+    return await translateText(text, SUPPORTED_LANGUAGES);
+});
+
+// Add these IPC handlers
+ipcMain.handle('close-translation-popup', () => {
+    if (translationPopup && !translationPopup.isDestroyed()) {
+        translationPopup.destroy();
+    }
+});
+
+ipcMain.handle('get-translation', async (event, text) => {
+    return await translateToUrdu(text);
+});
+
 // Quit app
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -373,11 +534,17 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
-  // Clean up intervals and shortcuts
-  if (app.monitoringInterval) {
-    clearInterval(app.monitoringInterval);
-  }
-  globalShortcut.unregisterAll();
+    // Clean up intervals and shortcuts
+    if (app.monitoringInterval) {
+        clearInterval(app.monitoringInterval);
+    }
+    globalShortcut.unregisterAll();
+    if (translationTimer) {
+        clearTimeout(translationTimer);
+    }
+    if (translationPopup && !translationPopup.isDestroyed()) {
+        translationPopup.destroy();
+    }
 });
 
 app.on('activate', () => {

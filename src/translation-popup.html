@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Translation Popup</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 12px;
+            background: rgba(30, 30, 46, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            border: 1px solid rgba(116, 199, 236, 0.3);
+            color: #cdd6f4;
+            font-family: 'Segoe UI', sans-serif;
+            max-width: 300px;
+            overflow: hidden;
+        }
+
+        .translation-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .original-text {
+            color: #f9e2af;
+            font-size: 14px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(116, 199, 236, 0.2);
+        }
+
+        .translated-text {
+            color: #a6e3a1;
+            font-size: 16px;
+            line-height: 1.4;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #74c7ec;
+            font-size: 14px;
+        }
+
+        .loading-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .dot {
+            width: 4px;
+            height: 4px;
+            background: #74c7ec;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(0.7); opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <div class="translation-container">
+        <div class="original-text" id="originalText"></div>
+        <div class="translated-text" id="translatedText">
+            <div class="loading">
+                Translating
+                <div class="loading-dots">
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        ipcRenderer.on('translate-text', (event, data) => {
+            document.getElementById('originalText').textContent = data.original;
+            document.getElementById('translatedText').innerHTML = 
+                `<div class="loading">Translating<div class="loading-dots">
+                    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                </div></div>`;
+        });
+
+        ipcRenderer.on('translation-result', (event, data) => {
+            document.getElementById('translatedText').textContent = data.translation;
+        });
+    </script>
+</body>
+</html>
