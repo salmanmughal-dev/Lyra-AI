@@ -100,6 +100,21 @@ npm start
 
 ## ⚙️ Configuration
 
+### Environment Variables Setup
+
+1. **Create Environment File**:
+   Create a `.env` file in the project root:
+   ```bash
+   touch .env
+   ```
+
+2. **Add Required Variables**:
+   ```env
+   MyKey=your_groq_api_key_here
+   MyGroqURL=https://api.groq.com/v1/chat/completions
+   defaultModel=llama3-70b-8192
+   ```
+   
 ### API Configuration
 
 The application uses Groq API with Llama 3 70B model. The API key is pre-configured, but you can modify it in `src/chat-script.js`:
