@@ -18,10 +18,12 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
+    "@vitalets/google-translate-api": "^9.2.1",
     "axios": "^1.6.0",
     "dotenv": "^17.2.0",
     "electron": "^27.0.0",
-    "env": "^0.0.2"
+    "env": "^0.0.2",
+    "mouse-position": "^2.1.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.1",

@@ -425,3 +425,27 @@ document.addEventListener("DOMContentLoaded", () => {
 document.addEventListener("contextmenu", (e) => {
   e.preventDefault();
 });
+
+// Add this after your existing ipcRenderer listeners
+
+ipcRenderer.on('show-translations', (event, data) => {
+    const { original, translations } = data;
+    
+    // Create translation display HTML
+    let translationHtml = `<div class="translation-result">
+        <div class="original-text">${original}</div>
+        <div class="translations-grid">`;
+    
+    translations.forEach(t => {
+        translationHtml += `
+            <div class="translation-item">
+                <div class="language">${t.language}</div>
+                <div class="translated-text">${t.text}</div>
+            </div>`;
+    });
+    
+    translationHtml += '</div></div>';
+    
+    // Add translation as an assistant message
+    addMessage(translationHtml, false);
+});
